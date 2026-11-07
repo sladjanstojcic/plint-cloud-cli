@@ -1,0 +1,17 @@
+{
+  "provider": "bunny",
+  "version": 1,
+  "source": "https://docs.bunny.net/storage/pricing",
+  "updated_at": "2026-04-21",
+  "currency": "USD",
+  "storage": {
+    "standard_edge_storage": {
+      "unit": "GB-month",
+      "price_per_gb_month": 0.01,
+      "minimum_monthly_charge": 1
+    }
+  },
+  "cdn": {
+    "included_in_estimate": false
+  }
+}
