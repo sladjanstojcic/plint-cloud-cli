@@ -11,3 +11,8 @@ docs/research/
 # plint.cloud site and its publish script (not part of the CLI)
 landing/
 __pycache__/
+# agent instructions (kept local)
+CLAUDE.md
+AGENTS.md
+.claude/
+.codex/
