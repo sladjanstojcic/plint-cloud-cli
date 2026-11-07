@@ -10,4 +10,5 @@ echo "== unit tests (source)"; cp -r "$R/src" "$W/src"
 UNIT=0; (cd "$W/src" && npm ci --no-audit --no-fund >/dev/null 2>&1 && HOME="$W/home" npm test >"$W/unit.log" 2>&1) || UNIT=1
 grep -E "^(ℹ|#) (tests|pass|fail) " "$W/unit.log" || tail -20 "$W/unit.log"
 echo "== e2e"; E2E=0; "$R/e2e/e2e.sh" "$W" || E2E=1
-[ "$UNIT" = 0 ] && [ "$E2E" = 0 ]
+echo "== projects"; PROJ=0; "$R/e2e/projects.sh" "$W" || PROJ=1
+[ "$UNIT" = 0 ] && [ "$E2E" = 0 ] && [ "$PROJ" = 0 ]

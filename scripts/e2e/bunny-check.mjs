@@ -2,6 +2,7 @@
 // Usage:
 //   node bunny-check.mjs state <project>          -> JSON: zones + every stored file (recursive)
 //   node bunny-check.mjs gone <storageId> <pullId> -> exit 0 if both zones are deleted
+//   node bunny-check.mjs delete <storageId>        -> delete a zone behind plint's back (stale test)
 import { readFileSync } from 'node:fs';
 
 const home = process.env.HOME;
@@ -55,7 +56,14 @@ if (mode === 'state') {
   const pzGone = pz.status === 404 || (pz.ok && (await pz.json()).Deleted === true);
   console.log(JSON.stringify({ storage_gone: szGone, pull_gone: pzGone, storage_status: sz.status, pull_status: pz.status }));
   process.exit(szGone && pzGone ? 0 : 1);
+} else if (mode === 'delete') {
+  const res = await fetch(`https://api.bunny.net/storagezone/${a}?deleteLinkedPullZones=true`, {
+    method: 'DELETE',
+    headers: { AccessKey: apiKey }
+  });
+  console.log(JSON.stringify({ deleted: res.ok, status: res.status }));
+  process.exit(res.ok ? 0 : 1);
 } else {
-  console.error('usage: state <project> | gone <storageId> <pullId>');
+  console.error('usage: state <project> | gone <storageId> <pullId> | delete <storageId>');
   process.exit(2);
 }

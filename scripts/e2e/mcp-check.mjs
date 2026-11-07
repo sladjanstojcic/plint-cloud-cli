@@ -1,53 +1,16 @@
-// Speaks raw MCP JSON-RPC (newline-delimited) to `<plint> mcp` with no SDK, so it
-// tests the bundled binary exactly as an MCP client would see it.
+// MCP smoke checks against an existing project, over raw stdio JSON-RPC.
 // Usage: node mcp-check.mjs <plint-binary> <existing-project> <site-dir>
-import { spawn } from 'node:child_process';
+import { checker, startMcp } from './mcp-client.mjs';
 
 const [plint, project, site] = process.argv.slice(2);
-const child = spawn(plint, ['mcp'], { stdio: ['pipe', 'pipe', 'pipe'] });
-let buf = '';
-let stderr = '';
-const waiting = new Map();
-let nonJsonStdout = 0;
-child.stderr.on('data', (d) => (stderr += d));
-child.stdout.on('data', (d) => {
-  buf += d;
-  let i;
-  while ((i = buf.indexOf('\n')) >= 0) {
-    const line = buf.slice(0, i).trim();
-    buf = buf.slice(i + 1);
-    if (!line) continue;
-    let msg;
-    try { msg = JSON.parse(line); } catch { nonJsonStdout += 1; continue; }
-    waiting.get(msg.id)?.(msg);
-  }
-});
-
-let id = 0;
-function rpc(method, params) {
-  const myId = ++id;
-  child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: myId, method, params }) + '\n');
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(`timeout on ${method}`)), 60000);
-    waiting.set(myId, (m) => { clearTimeout(t); resolve(m); });
-  });
-}
-const call = (name, args) => rpc('tools/call', { name, arguments: args }).then((m) => m.result);
-
-let failed = 0;
-const check = (name, cond, detail = '') => {
-  console.log(`${cond ? 'PASS' : 'FAIL'}  mcp: ${name}${cond ? '' : `  ${detail}`}`);
-  if (!cond) failed += 1;
-};
+const mcp = startMcp(plint);
+const { rpc, call } = mcp;
+const result = checker();
+const check = result.check;
 
 try {
-  const init = await rpc('initialize', {
-    protocolVersion: '2025-06-18',
-    capabilities: {},
-    clientInfo: { name: 'plint-e2e', version: '0' }
-  });
+  const init = await mcp.init();
   check('initialize returns serverInfo plint', init.result?.serverInfo?.name === 'plint', JSON.stringify(init));
-  child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
 
   const tools = (await rpc('tools/list', {})).result.tools.map((t) => t.name).sort();
   check('tools/list has 10 tools', tools.length === 10, tools.join(','));
@@ -86,10 +49,10 @@ try {
   const est = await call('plint_estimate', { path: site });
   check('plint_estimate ok', !est.isError, JSON.stringify(est).slice(0, 300));
 
-  check('no non-JSON bytes on MCP stdout', nonJsonStdout === 0, `${nonJsonStdout} lines`);
+  check('no non-JSON bytes on MCP stdout', mcp.nonJsonStdout === 0, `${mcp.nonJsonStdout} lines`);
 } catch (error) {
-  check('mcp session', false, `${error.message}\nstderr: ${stderr.slice(0, 500)}`);
+  check('mcp session', false, `${error.message}\nstderr: ${mcp.stderr.slice(0, 500)}`);
 } finally {
-  child.kill();
+  mcp.close();
 }
-process.exit(failed ? 1 : 0);
+process.exit(result.failed ? 1 : 0);

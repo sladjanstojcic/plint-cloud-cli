@@ -9,6 +9,9 @@
 #   - e2e.sh: about 110 checks of the installed binary against the real Bunny API
 #     (deploys, CDN content, ignore rules, redaction, concurrency, MCP over stdio,
 #     destroy), with every result re-checked through bunny-check.mjs,
+#   - projects.sh: many projects and folders at once, interactive prompts through a
+#     PTY, login, auth precedence, stale projects and repair, corrupt state, and every
+#     MCP tool (needs python3 on the host),
 #   - with --mcp-chat: a 7-turn plain-language conversation with a child `claude -p`
 #     session whose only tools are the plint MCP server (needs `claude` logged in there).
 # --node <version> downloads that official Node build (SHA-256 verified) into the work dir;
@@ -43,10 +46,10 @@ PLINT_DIST_DIR="$BUILD/dist" node scripts/build-release.mjs
 ssh "$HOST" 'rm -rf ~/plint-e2e && mkdir -p ~/plint-e2e/e2e ~/plint-e2e/src && chmod 700 ~/plint-e2e'
 rsync -a --exclude node_modules --exclude .env --exclude dist --exclude .git ./ "$HOST:plint-e2e/src/"
 scp -q "$BUILD/dist/plint.tar.gz" install.sh "$HOST:plint-e2e/"
-scp -q scripts/e2e/*.sh scripts/e2e/*.mjs "$HOST:plint-e2e/e2e/"
+scp -q scripts/e2e/*.sh scripts/e2e/*.mjs scripts/e2e/*.py "$HOST:plint-e2e/e2e/"
 # Key goes over stdin into a mode-600 file, never on a command line.
 printf '{ "apiKey": "%s" }\n' "$BUNNY_API_KEY" |
-  ssh "$HOST" 'umask 077; cat > ~/plint-e2e/key.json; chmod +x ~/plint-e2e/e2e/*.sh'
+  ssh "$HOST" 'umask 077; cat > ~/plint-e2e/key.json; chmod +x ~/plint-e2e/e2e/*.sh ~/plint-e2e/e2e/*.py'
 
 NODE_BIN=""
 if [ -n "$NODE_VERSION" ]; then

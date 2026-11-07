@@ -10,3 +10,4 @@ docs/superpowers/
 docs/research/
 # plint.cloud site and its publish script (not part of the CLI)
 landing/
+__pycache__/
