@@ -1,6 +1,6 @@
 {
   "name": "plint",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Static hosting CLI for Bunny.net",
   "type": "module",
   "bin": {
