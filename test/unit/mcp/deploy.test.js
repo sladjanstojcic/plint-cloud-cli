@@ -280,4 +280,22 @@ describe('mcp deploy tool', () => {
     await handler({ path: '/tmp/site', project: 'docs', create: true });
     assert.equal(received.scan.files.length, 1);
   });
+
+  it('saves the binding as soon as zones are created and passes the previous URL', async () => {
+    const calls = [];
+    const handler = deployHandler({
+      getProject: async () => null,
+      validateProjectName: () => {},
+      isProjectNameReserved: async () => false,
+      ...stubScanDeps(),
+      deployCore: async (input) => {
+        await input.onBindingCreated({ zoneId: 10 });
+        throw Object.assign(new Error('interrupted'), { code: 'AUTH_MISSING' });
+      },
+      persistBinding: async (args) => calls.push(args)
+    });
+    const result = await handler({ path: '/tmp/site', project: 'docs', create: true });
+    assert.equal(result.isError, true);
+    assert.deepEqual(calls, [{ project: 'docs', config: { zoneId: 10 } }]);
+  });
 });

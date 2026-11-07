@@ -88,6 +88,48 @@ describe('files', () => {
     );
   });
 
+  it('respects .gitignore and .plintignore files in subdirectories, scoped to them', async () => {
+    const { walkLocalFiles } = await import('../../src/lib/files.js');
+    await writeFile(join(tempDir, 'index.html'), '<h1>ok</h1>');
+    await mkdir(join(tempDir, 'sub', 'private'), { recursive: true });
+    await mkdir(join(tempDir, 'sub', 'drafts'), { recursive: true });
+    await mkdir(join(tempDir, 'other', 'private'), { recursive: true });
+    await writeFile(join(tempDir, 'sub', '.gitignore'), 'private/\n');
+    await writeFile(join(tempDir, 'sub', '.plintignore'), 'drafts/\n');
+    await writeFile(join(tempDir, 'sub', 'private', 'x.html'), 'secret');
+    await writeFile(join(tempDir, 'sub', 'drafts', 'd.html'), 'draft');
+    await writeFile(join(tempDir, 'sub', 'ok.html'), 'ok');
+    await writeFile(join(tempDir, 'other', 'private', 'y.html'), 'not covered by sub/.gitignore');
+
+    const { files } = await walkLocalFiles(tempDir);
+    assert.deepEqual(files.map((f) => f.path), ['index.html', 'other/private/y.html', 'sub/ok.html']);
+  });
+
+  it('skips names Bunny Storage cannot store (? \\ \" < >) with a warning', async () => {
+    const { walkLocalFiles } = await import('../../src/lib/files.js');
+    await writeFile(join(tempDir, 'index.html'), 'ok');
+    for (const name of ['q?x.txt', 'back\\slash.txt', 'dq"uote.txt', 'lt<gt>.txt']) {
+      await writeFile(join(tempDir, name), 'x');
+    }
+    await mkdir(join(tempDir, 'dir?x'));
+    await writeFile(join(tempDir, 'dir?x', 'inner.html'), 'x');
+    await writeFile(join(tempDir, 'a#b*c|d:e.txt'), 'storable');
+
+    const { files, warnings } = await walkLocalFiles(tempDir);
+    assert.deepEqual(files.map((f) => f.path), ['a#b*c|d:e.txt', 'index.html']);
+    const skipped = warnings.filter((w) => w.code === 'SKIPPED_UNSUPPORTED_NAME').map((w) => w.path).sort();
+    assert.deepEqual(skipped, ['back\\slash.txt', 'dir?x', 'dq"uote.txt', 'lt<gt>.txt', 'q?x.txt']);
+  });
+
+  it('refuses a single-file deploy of a name Bunny cannot store', async () => {
+    const { buildSingleFileEntry } = await import('../../src/lib/files.js');
+    await writeFile(join(tempDir, 'q?x.txt'), 'x');
+    await assert.rejects(
+      () => buildSingleFileEntry(tempDir, join(tempDir, 'q?x.txt')),
+      (error) => error.code === 'PATH_NOT_SUPPORTED' && /cannot store/.test(error.message)
+    );
+  });
+
   it('respects .plintignore after .gitignore for user-controlled ignores', async () => {
     const { walkLocalFiles } = await import('../../src/lib/files.js');
     await writeFile(join(tempDir, '.gitignore'), 'logs/\n');

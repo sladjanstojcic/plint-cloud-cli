@@ -116,6 +116,7 @@ async function tryPurge(api, apiKey, config) {
 
 // input.scan: optional scanLocalTarget() result for input.path, so callers that
 // already scanned (to validate before prompting) don't walk the tree twice.
+// input.onBindingCreated(config): called once new zones exist, before any upload.
 export async function deployCore(input, deps = {}) {
   const api = {
     stat,
@@ -151,6 +152,7 @@ export async function deployCore(input, deps = {}) {
     if (!config) {
       config = await createProjectBinding(apiKey, api);
       await api.waitForStorageReady(config);
+      await input.onBindingCreated?.(config);
     }
     config = await ensureZoneName(config, apiKey, api);
   }
@@ -190,6 +192,7 @@ export async function deployCore(input, deps = {}) {
         deleted: 0,
         unchanged,
         localPath: input.path,
+        targetType: 'file',
         warnings: [],
         cachePurge
       };
@@ -252,6 +255,7 @@ export async function deployCore(input, deps = {}) {
       deleted: toDelete.length,
       unchanged,
       localPath: input.path,
+      targetType: 'directory',
       warnings: local.warnings,
       cachePurge
     };

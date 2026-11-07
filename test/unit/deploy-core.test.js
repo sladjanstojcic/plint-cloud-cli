@@ -473,6 +473,46 @@ describe('deployCore', () => {
     assert.deepEqual(calls, ['upload', 'purge']);
   });
 
+  it('reports new zones through onBindingCreated before uploading anything', async () => {
+    const events = [];
+    const { deployCore } = await import('../../src/lib/deploy-core.js');
+    const result = await deployCore(
+      { path: '/tmp/site', onBindingCreated: async (config) => events.push(['binding', config.zoneId, config.zoneName]) },
+      {
+        resolveApiKey: () => 'account-key',
+        stat: async () => ({ isFile: () => false }),
+        walkLocalFiles: async () => ({ files: [{ path: 'index.html', size: 2, checksum: 'c', localPath: '/tmp/site/index.html' }], warnings: [] }),
+        generateInternalZoneName: () => 'plint-new',
+        createStorageZone: async () => ({ Id: 10, Name: 'plint-new', Password: 'p', StorageHostname: 's' }),
+        createPullZone: async () => ({ Id: 11, Hostnames: [{ Value: 'plint-new.b-cdn.net', IsSystemHostname: true }] }),
+        waitForStorageReady: async () => {},
+        listRemoteFiles: async () => [],
+        uploadRemoteFile: async () => events.push(['upload']),
+        purgePullZone: async () => {}
+      }
+    );
+    assert.deepEqual(events, [['binding', 10, 'plint-new'], ['upload']]);
+    assert.equal(result.targetType, 'directory');
+  });
+
+  it('does not call onBindingCreated for an existing project', async () => {
+    const calls = [];
+    const { deployCore } = await import('../../src/lib/deploy-core.js');
+    const result = await deployCore(
+      { path: '/tmp/site/report.pdf', existingZone: { zoneId: '10', zoneName: 'z', zonePassword: 'p', storageHostname: 's', pullZoneId: '11', pullZoneHostname: 'h' }, onBindingCreated: async () => calls.push('binding') },
+      {
+        resolveApiKey: () => 'account-key',
+        stat: async () => ({ isFile: () => true }),
+        buildSingleFileEntry: async () => ({ path: 'report.pdf', size: 1, checksum: 'c', localPath: '/tmp/site/report.pdf' }),
+        listRemoteFiles: async () => [],
+        uploadRemoteFile: async () => {},
+        purgePullZone: async () => {}
+      }
+    );
+    assert.deepEqual(calls, []);
+    assert.equal(result.targetType, 'file');
+  });
+
   it('raises DIRECTORY_EMPTY for an empty directory deploy', async () => {
     const calls = [];
     await assert.rejects(

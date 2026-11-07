@@ -46,4 +46,24 @@ describe('open command', () => {
       (error) => error.code === 'PROJECT_NOT_FOUND'
     );
   });
+
+  it('raises BROWSER_OPEN_FAILED with the URL when no browser opener is available', async () => {
+    const buffer = createBuffer();
+    const { default: open } = await import('../../../src/commands/open.js');
+    await assert.rejects(
+      () => open([], { options: { project: 'docs' }, json: true, stdout: buffer.stream }, {
+        getProject: async () => ({ url: 'https://docs.b-cdn.net/' }),
+        platformOpen: async () => {
+          throw Object.assign(new Error('spawn xdg-open ENOENT'), { code: 'ENOENT' });
+        }
+      }),
+      (error) => error.code === 'BROWSER_OPEN_FAILED' && error.message.includes('https://docs.b-cdn.net/')
+    );
+    assert.equal(buffer.read(), '', 'no success envelope before the failure');
+  });
+
+  it('the default opener reports a missing opener instead of crashing', async () => {
+    const { defaultPlatformOpen } = await import('../../../src/commands/open.js');
+    await assert.rejects(() => defaultPlatformOpen('https://x.test/', { command: 'plint-no-such-opener-xyz', args: [] }));
+  });
 });

@@ -1,13 +1,15 @@
 import { lstat, readdir, stat } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { ERROR_CODES } from '../error-codes.js';
-import { buildIgnoreRules, isExcluded } from './ignore.js';
+import { buildIgnoreRules, isExcluded, rulesForSubdirectory } from './ignore.js';
 import { buildFileRecord, toRelativePath } from './records.js';
 import {
+  hasUnsupportedName,
   pushWarning,
   specialFileWarning,
   symlinkWarning,
-  unreadableWarning
+  unreadableWarning,
+  unsupportedNameWarning
 } from './warnings.js';
 
 function pathNotSupportedError(resolvedPath) {
@@ -20,11 +22,11 @@ function pathNotSupportedError(resolvedPath) {
 
 export async function walkLocalFiles(rootDir) {
   const resolvedRoot = resolve(rootDir);
-  const rules = await buildIgnoreRules(resolvedRoot);
+  const rootRules = await buildIgnoreRules(resolvedRoot);
   const files = [];
   const warnings = [];
 
-  async function walk(currentDir) {
+  async function walk(currentDir, rules) {
     let entries;
     try {
       entries = await readdir(currentDir, { withFileTypes: true });
@@ -41,6 +43,12 @@ export async function walkLocalFiles(rootDir) {
       const relativePath = toRelativePath(resolvedRoot, absolutePath);
       if (entry.isDirectory() && isExcluded(`${relativePath}/`, rules, warnings)) continue;
       if (!entry.isDirectory() && isExcluded(relativePath, rules, warnings)) continue;
+      if (hasUnsupportedName(entry.name)) {
+        // toRelativePath turns "\\" into "/", so report the name as it really is
+        const parent = toRelativePath(resolvedRoot, currentDir);
+        pushWarning(warnings, unsupportedNameWarning(parent ? `${parent}/${entry.name}` : entry.name));
+        continue;
+      }
 
       let stats;
       try {
@@ -58,7 +66,7 @@ export async function walkLocalFiles(rootDir) {
         continue;
       }
       if (stats.isDirectory()) {
-        await walk(absolutePath);
+        await walk(absolutePath, await rulesForSubdirectory(rules, absolutePath, relativePath));
         continue;
       }
       if (!stats.isFile()) {
@@ -69,7 +77,7 @@ export async function walkLocalFiles(rootDir) {
     }
   }
 
-  await walk(resolvedRoot);
+  await walk(resolvedRoot, rootRules);
   return { files: files.sort((left, right) => left.path.localeCompare(right.path)), warnings };
 }
 
@@ -87,6 +95,12 @@ export async function buildSingleFileEntry(projectDir, filePath) {
     const error = new Error('Single-file deploy target is excluded by plint rules.');
     error.code = ERROR_CODES.PATH_EXCLUDED;
     error.warnings = warnings;
+    throw error;
+  }
+
+  if (hasUnsupportedName(relativePath)) {
+    const error = new Error(`Bunny Storage cannot store this file name (? \\ " < > are not allowed): ${relativePath}`);
+    error.code = ERROR_CODES.PATH_NOT_SUPPORTED;
     throw error;
   }
 

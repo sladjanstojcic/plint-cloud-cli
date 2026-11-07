@@ -55,7 +55,7 @@ export function createProjectsStore({ rootDir = join(homedir(), '.plint') } = {}
   const statePath = join(rootDir, 'state.json');
 
   async function ensureRoot() {
-    await mkdir(rootDir, { recursive: true });
+    await mkdir(rootDir, { recursive: true, mode: 0o700 });
   }
 
   async function readState() {
@@ -71,7 +71,8 @@ export function createProjectsStore({ rootDir = join(homedir(), '.plint') } = {}
 
   async function writeState(nextState) {
     await ensureRoot();
-    await writeFileAtomic(statePath, `${JSON.stringify(nextState, null, 2)}\n`);
+    // state.json holds storage zone passwords, so it is owner-only.
+    await writeFileAtomic(statePath, `${JSON.stringify(nextState, null, 2)}\n`, { mode: 0o600 });
   }
 
   async function withLock(work) {

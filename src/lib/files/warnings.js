@@ -15,6 +15,14 @@ export const specialFileWarning = (path) =>
 export const unreadableWarning = (path) =>
   skipWarning('SKIPPED_UNREADABLE', 'Skipped unreadable entry', path);
 
+// Bunny Storage truncates names at "?", turns "\\" into a folder separator and drops
+// '"', "<" and ">", so such files would be stored under another name (and deleted again
+// on the next deploy).
+const UNSUPPORTED_NAME = /[?\\"<>]/;
+export const hasUnsupportedName = (name) => UNSUPPORTED_NAME.test(name);
+export const unsupportedNameWarning = (path) =>
+  skipWarning('SKIPPED_UNSUPPORTED_NAME', 'Skipped name Bunny Storage cannot store (? \\ " < >)', path);
+
 const truncationWarning = (skipped) => ({
   code: 'WARNINGS_TRUNCATED',
   message: `${skipped} additional warnings truncated`,

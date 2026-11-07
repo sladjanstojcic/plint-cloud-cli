@@ -8,7 +8,7 @@ import { scanLocalTarget } from '../../lib/files.js';
 import { assertSafePath } from '../../lib/files/safety.js';
 import { summarizeScan } from '../../lib/preflight/index.js';
 import { validateProjectName } from '../../lib/projects/name.js';
-import { persistDeploy } from '../../lib/projects/persistence.js';
+import { persistBinding, persistDeploy } from '../../lib/projects/persistence.js';
 import {
   bindingToExistingZone,
   getProject,
@@ -48,6 +48,7 @@ const MAPPABLE_DEPLOY_CODES = new Set([
 const defaults = {
   deployCore,
   persistDeploy,
+  persistBinding,
   validateProjectName,
   getProject,
   isProjectNameReserved,
@@ -95,7 +96,12 @@ export function deployHandler(overrides = {}) {
         return okResult(payload, `Dry-run complete for ${project}.`);
       }
 
-      result = await deps.deployCore({ path, existingZone, scan });
+      result = await deps.deployCore({
+        path,
+        existingZone,
+        scan,
+        onBindingCreated: (config) => deps.persistBinding({ project, config })
+      });
     } catch (error) {
       if (MAPPABLE_DEPLOY_CODES.has(error.code)) {
         return errorResult(error.code, error.message);
@@ -106,7 +112,8 @@ export function deployHandler(overrides = {}) {
     const payload = await deps.persistDeploy({
       project,
       result,
-      created: !existing
+      created: !existing,
+      previousUrl: existing?.url
     });
     return okResult(payload, `Deployed ${payload.project} to ${payload.url}`);
   };

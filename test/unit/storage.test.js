@@ -149,4 +149,29 @@ describe('storage wrapper', () => {
     assert.equal(captured[0].options.duplex, 'half');
     assert.equal(captured[0].options.headers.Checksum, 'ABC');
   });
+
+  it('percent-encodes each path segment so #, ? and % reach Bunny as part of the name', async () => {
+    const { uploadRemoteFile } = await import('../../src/lib/storage.js');
+    const urls = [];
+    global.fetch = async (url) => {
+      urls.push(url);
+      return new Response('', { status: 201 });
+    };
+    const config = { storageHostname: 'storage.example.test', zoneName: 'plint-zone', zonePassword: 'secret' };
+    await uploadRemoteFile(config, 'dir #1/a#b?c%d.html', '/tmp/x', 'ABC', { createBody: () => Buffer.from('x') });
+    await deleteRemoteFile(config, 'q?x.txt');
+    assert.equal(urls[0], 'https://storage.example.test/plint-zone/dir%20%231/a%23b%3Fc%25d.html');
+    assert.equal(urls[1], 'https://storage.example.test/plint-zone/q%3Fx.txt');
+  });
+
+  it('percent-encodes directory paths when listing', async () => {
+    const urls = [];
+    global.fetch = async (url) => {
+      urls.push(url);
+      const body = urls.length === 1 ? [{ ObjectName: 'a#b', IsDirectory: true }] : [];
+      return new Response(JSON.stringify(body), { status: 200 });
+    };
+    await listRemoteFiles({ storageHostname: 'storage.example.test', zoneName: 'plint-zone', zonePassword: 'secret' });
+    assert.equal(urls[1], 'https://storage.example.test/plint-zone/a%23b/');
+  });
 });

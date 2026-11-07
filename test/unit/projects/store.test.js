@@ -98,4 +98,14 @@ describe('project store', () => {
     const state = await store.readState();
     assert.equal(state.projects.legacy.binding.storage_zone_id, '1');
   });
+
+  it('writes state.json readable only by the owner (it holds zone passwords)', async () => {
+    const { stat } = await import('node:fs/promises');
+    const root = await mkdtemp(join(tmpdir(), 'plint-project-store-'));
+    const store = createProjectsStore({ rootDir: root });
+    await store.upsertProject('docs', { binding: { zone_password: 'secret' } });
+    const files = await (await import('node:fs/promises')).readdir(root, { recursive: true });
+    const statePath = files.map((f) => join(root, f)).find((f) => f.endsWith('state.json'));
+    assert.equal((await stat(statePath)).mode & 0o777, 0o600);
+  });
 });

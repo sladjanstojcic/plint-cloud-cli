@@ -26,6 +26,9 @@ const ERROR_ACTIONS = {
   [ERROR_CODES.CONFIRMATION_REQUIRED]: [
     action('plint --json <command>', 'Re-run in JSON mode to skip confirmation')
   ],
+  [ERROR_CODES.BROWSER_OPEN_FAILED]: [
+    action('plint url -p <project>', 'Print the URL to open it yourself')
+  ],
   [ERROR_CODES.STATE_CORRUPT]: [
     action('plint doctor --json', 'Diagnose state file and auth'),
     action('cat ~/.plint/state.json', 'Inspect the state file contents')

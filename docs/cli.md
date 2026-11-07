@@ -59,6 +59,14 @@ plint scans local files in this order:
    - `.gitignore`
    - `.plintignore`
 
+   These are read in the deployed folder and in every subfolder. A file in a subfolder
+   applies to paths below it, like git. One difference from git: a `!pattern` in a
+   subfolder cannot re-include something a parent folder's ignore file excluded.
+
+Files and folders whose names contain `?`, `\`, `"`, `<` or `>` are skipped with a
+`SKIPPED_UNSUPPORTED_NAME` warning, because Bunny Storage cannot store those names
+(it truncates at `?`, turns `\` into a folder separator and drops the others).
+
 `.plintignore` may exclude additional files or directories. It cannot re-include anything caught by the hard safety excludes. Files that match the secret-like patterns still show up in `estimate` and dry-run warnings so you can see why they were skipped.
 
 ## Deploy summary

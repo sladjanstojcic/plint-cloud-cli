@@ -10,7 +10,7 @@ import { scanLocalTarget } from '../lib/files.js';
 import { dryRunPayload } from '../lib/deploy/dry-run.js';
 import { assertDeployableScan } from '../lib/deploy/validation.js';
 import { validateProjectName } from '../lib/projects/name.js';
-import { persistDeploy } from '../lib/projects/persistence.js';
+import { persistBinding, persistDeploy } from '../lib/projects/persistence.js';
 import { CREATE_DECLINED, resolveProjectName } from '../lib/projects/resolve.js';
 import {
   bindingToExistingZone,
@@ -107,6 +107,7 @@ export default async function deploy(
     resolveApiKey,
     deployCore,
     persistDeploy,
+    persistBinding,
     validateProjectName,
     getProject,
     isProjectNameReserved,
@@ -177,6 +178,7 @@ export default async function deploy(
     path,
     existingZone: existing ? bindingToExistingZone(existing.binding) : undefined,
     scan,
+    onBindingCreated: (config) => deps.persistBinding({ project, config }),
     onProgress: spinner ? createSpinnerUpdater(spinner) : undefined
   }).catch((error) => {
     spinner?.fail('Deploy failed');
@@ -184,7 +186,7 @@ export default async function deploy(
   });
   spinner?.succeed('Upload complete');
 
-  const payload = await deps.persistDeploy({ project, result, created });
+  const payload = await deps.persistDeploy({ project, result, created, previousUrl: existing?.url });
 
   if (context.json) {
     writeJsonSuccess('deploy', payload, context.stdout);

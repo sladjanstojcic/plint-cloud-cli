@@ -10,22 +10,43 @@ const defaults = {
   reserveProjectName
 };
 
-export async function persistDeploy({ project, result, created }, overrides = {}) {
+// The state.json binding for a project's Bunny zones (deployCore config shape).
+function bindingRecord(zones) {
+  return {
+    storage_zone_id: String(zones.zoneId),
+    pull_zone_id: String(zones.pullZoneId),
+    storage_hostname: zones.storageHostname,
+    pull_zone_hostname: zones.pullZoneHostname,
+    zone_name: zones.zoneName,
+    zone_password: zones.zonePassword
+  };
+}
+
+// Records a new project the moment its Bunny zones exist, before any upload, so an
+// interrupted first deploy leaves a project that can be redeployed or destroyed
+// instead of zones plint no longer knows about.
+export async function persistBinding({ project, config }, overrides = {}) {
   const deps = { ...defaults, ...overrides };
-  const { url, warning } = deps.deployUrl(result.pullZoneHostname, result.remoteFiles);
+  await deps.upsertProject(project, {
+    url: `https://${config.pullZoneHostname}/`,
+    last_deploy_at: null,
+    binding: bindingRecord(config)
+  });
+}
+
+export async function persistDeploy({ project, result, created, previousUrl }, overrides = {}) {
+  const deps = { ...defaults, ...overrides };
+  // A single file added to an existing project keeps that project's URL.
+  const keepUrl = !created && result.targetType === 'file' && previousUrl;
+  const { url, warning } = keepUrl
+    ? { url: previousUrl }
+    : deps.deployUrl(result.pullZoneHostname, result.remoteFiles);
   const now = new Date().toISOString();
 
   await deps.upsertProject(project, {
     url,
     last_deploy_at: now,
-    binding: {
-      storage_zone_id: String(result.storageZoneId),
-      pull_zone_id: String(result.pullZoneId),
-      storage_hostname: result.storageHostname,
-      pull_zone_hostname: result.pullZoneHostname,
-      zone_name: result.zoneName,
-      zone_password: result.zonePassword
-    }
+    binding: bindingRecord({ ...result, zoneId: result.storageZoneId })
   });
 
   await deps.appendHistory({

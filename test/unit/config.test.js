@@ -34,4 +34,13 @@ describe('config', () => {
       { apiKey: 'written' }
     );
   });
+
+  it('writes config.json readable only by the owner, even if it already existed', async () => {
+    const { stat, writeFile: write } = await import('node:fs/promises');
+    const dir = await mkdtemp(join(tmpdir(), 'plint-config-'));
+    await write(join(dir, 'config.json'), '{}', { mode: 0o644 });
+    await saveGlobalConfig({ apiKey: 'written' }, dir);
+    assert.equal((await stat(join(dir, 'config.json'))).mode & 0o777, 0o600);
+    assert.equal((await stat(dir)).mode & 0o077, 0);
+  });
 });

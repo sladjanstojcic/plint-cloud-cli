@@ -100,6 +100,31 @@ describe('deploy command project flow', () => {
     assert.equal(parsed.data.created, true);
   });
 
+  it('saves the binding before uploading and keeps the previous URL on redeploy', async () => {
+    const { default: deploy } = await import('../../../src/commands/deploy.js');
+    const bindings = [];
+    let persisted;
+    await deploy(['dist'], { json: true, stdout: { write() {} }, options: { project: 'docs' } }, {
+      resolveApiKey: () => 'account-key',
+      stat: async () => ({ isFile: () => false }),
+      validateProjectName: () => {},
+      isProjectNameReserved: async () => false,
+      getProject: async () => ({ url: 'https://root.b-cdn.net/', binding: { storage_zone_id: '1', pull_zone_id: '2', storage_hostname: 's', pull_zone_hostname: 'h', zone_password: 'p' } }),
+      deployCore: async (input) => {
+        await input.onBindingCreated({ zoneId: 10 });
+        return stubDeployResult;
+      },
+      persistBinding: async (args) => bindings.push(args),
+      persistDeploy: async (args) => {
+        persisted = args;
+        return stubPersistDeploy(args);
+      },
+      ...stubScanDeps()
+    });
+    assert.deepEqual(bindings, [{ project: 'docs', config: { zoneId: 10 } }]);
+    assert.equal(persisted.previousUrl, 'https://root.b-cdn.net/');
+  });
+
   it('hints at a known subcommand when the path looks like one', async () => {
     const { default: deploy } = await import('../../../src/commands/deploy.js');
     await assert.rejects(

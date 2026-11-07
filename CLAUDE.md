@@ -77,7 +77,7 @@ Error `code` must come from `ERROR_CODES` in `src/lib/error-codes.js`. When thro
 `deployCore()` in `src/lib/deploy-core.js`:
 
 1. Resolve or create a Bunny storage zone + pull zone (`createProjectBinding` with retries on `storagezone.name_taken`).
-2. Scan local files via `walkLocalFiles` (hard safety excludes + `.gitignore` + `.plintignore` — see `src/lib/files/ignore.js`; hard excludes can never be re-included). Skipped entries (symlinks, FIFOs/sockets/devices, unreadable files) emit warnings built by `src/lib/files/warnings.js`, which caps the warnings array at 100 with a `WARNINGS_TRUNCATED` sentinel. Root paths like `/`, `~`, `~/Desktop` are refused by `assertSafePath` in `src/lib/files/safety.js`.
+2. Scan local files via `walkLocalFiles` (hard safety excludes + `.gitignore` + `.plintignore`, read in every directory and scoped to it — see `src/lib/files/ignore.js`; hard excludes can never be re-included). Skipped entries (symlinks, FIFOs/sockets/devices, unreadable files) emit warnings built by `src/lib/files/warnings.js`, which caps the warnings array at 100 with a `WARNINGS_TRUNCATED` sentinel. Root paths like `/`, `~`, `~/Desktop` are refused by `assertSafePath` in `src/lib/files/safety.js`.
 3. Compute changeset via `computeChangeset` (hash-based upload/delete/unchanged).
 4. Upload/delete with `p-limit` concurrency (10 uploads, 5 deletes) and transient retry (`withTransientRetry` — 408/425/429/5xx and DNS/TCP errors).
 5. Purge the pull zone; purge failures are non-fatal (`cachePurge: "failed"`).

@@ -36,7 +36,9 @@ export function fixFor(error) {
     case ERROR_CODES.PATH_UNSAFE:
       return 'Refusing to deploy a top-level system path. Pass a subdirectory.';
     case ERROR_CODES.PATH_NOT_SUPPORTED:
-      return 'Deploy only accepts regular files and directories.';
+      return 'Deploy only accepts regular files and directories, with names Bunny can store (no ? \\ " < >).';
+    case ERROR_CODES.BROWSER_OPEN_FAILED:
+      return 'No browser opener is available here. Open the URL yourself; `plint url -p <project>` prints it.';
     case ERROR_CODES.STATE_CORRUPT:
       return 'Inspect `~/.plint/state.json`. Restore a backup, or delete the file and re-run `plint login` (projects must be re-linked).';
     default:

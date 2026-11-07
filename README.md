@@ -33,7 +33,7 @@ Path: /Users/me/site/dist
 ## Why plint
 
 - **Incremental deploys.** Files are compared by hash. Unchanged files are skipped and removed files are deleted.
-- **Hard to leak secrets.** `.git/`, `node_modules/`, `.env*`, `*.pem` and `*.key` are never uploaded, and no ignore file can re-include them. Hidden files are skipped too. `.gitignore` and `.plintignore` are respected on top of that.
+- **Hard to leak secrets.** `.git/`, `node_modules/`, `.env*`, `*.pem` and `*.key` are never uploaded, and no ignore file can re-include them. Hidden files are skipped too. `.gitignore` and `.plintignore` (in any folder) are respected on top of that.
 - **Safe previews.** `plint estimate` shows size, warnings and a rough storage cost with no auth. `--dry-run` shows the full changeset without touching Bunny or local state.
 - **Built for scripts and agents.** Every command takes `--json` and writes exactly one envelope to stdout; progress goes to stderr. Errors carry stable codes and a suggested fix.
 - **Agent-native.** `plint mcp` runs a local MCP server with the same tools the CLI uses.

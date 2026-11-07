@@ -7,6 +7,8 @@ const jsonHeaders = { Accept: 'application/json' };
 const buildBaseUrl = (config) => `https://${config.storageHostname}/${config.zoneName}`;
 const normalizeDirectoryPath = (path) => (path && path !== '/' ? `/${path.replace(/^\/+|\/+$/g, '')}/` : '/');
 const normalizeFilePath = (path) => `/${path.replace(/^\/+/, '')}`;
+// File names may contain #, ? or %, which would otherwise be read as URL syntax.
+const encodePath = (path) => path.split('/').map(encodeURIComponent).join('/');
 
 async function parseBody(response) {
   const text = await response.text();
@@ -14,7 +16,7 @@ async function parseBody(response) {
 }
 
 async function request(config, path, options = {}, fetchImpl = fetch) {
-  const response = await fetchImpl(`${buildBaseUrl(config)}${path}`, {
+  const response = await fetchImpl(`${buildBaseUrl(config)}${encodePath(path)}`, {
     ...options,
     headers: {
       AccessKey: config.zonePassword,

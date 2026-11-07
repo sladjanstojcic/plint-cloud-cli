@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  persistBinding,
   persistDeploy,
   persistDestroy
 } from '../../../src/lib/projects/persistence.js';
@@ -110,5 +111,73 @@ describe('persistDestroy', () => {
       ['reserveProjectName', 'docs'],
       ['appendHistory', 'destroy', 'https://plint-abc.b-cdn.net/']
     ]);
+  });
+});
+
+describe('persistBinding', () => {
+  it('records a new project as soon as its zones exist, before any upload', async () => {
+    const calls = [];
+    await persistBinding(
+      {
+        project: 'docs',
+        config: {
+          zoneId: 10,
+          zoneName: 'plint-abc',
+          zonePassword: 'secret',
+          storageHostname: 'storage.bunnycdn.com',
+          pullZoneId: 11,
+          pullZoneHostname: 'plint-abc.b-cdn.net'
+        }
+      },
+      { upsertProject: async (project, value) => calls.push([project, value]) }
+    );
+    assert.deepEqual(calls, [[
+      'docs',
+      {
+        url: 'https://plint-abc.b-cdn.net/',
+        last_deploy_at: null,
+        binding: {
+          storage_zone_id: '10',
+          pull_zone_id: '11',
+          storage_hostname: 'storage.bunnycdn.com',
+          pull_zone_hostname: 'plint-abc.b-cdn.net',
+          zone_name: 'plint-abc',
+          zone_password: 'secret'
+        }
+      }
+    ]]);
+  });
+});
+
+describe('persistDeploy project URL', () => {
+  const singleFile = { ...stubResult, remoteFiles: ['report.pdf'], targetType: 'file' };
+  const capture = () => {
+    const saved = {};
+    return { saved, deps: { upsertProject: async (_p, value) => Object.assign(saved, value), appendHistory: async () => {} } };
+  };
+
+  it('keeps the existing project URL when a single file is added to it', async () => {
+    const { saved, deps } = capture();
+    const payload = await persistDeploy(
+      { project: 'docs', result: singleFile, created: false, previousUrl: 'https://plint-abc.b-cdn.net/' },
+      deps
+    );
+    assert.equal(saved.url, 'https://plint-abc.b-cdn.net/');
+    assert.equal(payload.url, 'https://plint-abc.b-cdn.net/');
+  });
+
+  it('points a new single-file project at its file', async () => {
+    const { saved, deps } = capture();
+    await persistDeploy({ project: 'report', result: singleFile, created: true }, deps);
+    assert.equal(saved.url, 'https://plint-abc.b-cdn.net/report.pdf');
+  });
+
+  it('recomputes the URL on a folder deploy', async () => {
+    const { saved, deps } = capture();
+    await persistDeploy(
+      { project: 'docs', result: { ...stubResult, targetType: 'directory' }, created: false, previousUrl: 'https://plint-abc.b-cdn.net/old.pdf' },
+      deps
+    );
+    assert.equal(saved.url, 'https://plint-abc.b-cdn.net/');
   });
 });

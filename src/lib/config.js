@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { ERROR_CODES } from './error-codes.js';
@@ -28,6 +28,10 @@ export function requireApiKey(resolveKey = resolveApiKey) {
 }
 
 export async function saveGlobalConfig(data, globalConfigDir = GLOBAL_DIR) {
-  await mkdir(globalConfigDir, { recursive: true });
-  await writeFile(join(globalConfigDir, GLOBAL_FILE), `${JSON.stringify(data, null, 2)}\n`);
+  // The file holds the account API key: owner-only, also when it already existed.
+  await mkdir(globalConfigDir, { recursive: true, mode: 0o700 });
+  await chmod(globalConfigDir, 0o700);
+  const file = join(globalConfigDir, GLOBAL_FILE);
+  await writeFile(file, `${JSON.stringify(data, null, 2)}\n`, { mode: 0o600 });
+  await chmod(file, 0o600);
 }
